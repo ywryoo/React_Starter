@@ -1,0 +1,23 @@
+{
+  "apps" : [
+    {
+      "name": "appname_dev",
+      "script": "dist/server.js",
+      "env": {
+        "COMMON_VARIABLE": "true",
+        "NODE_PATH": ""
+      }
+    }
+  ],
+  "deploy" : {
+    "dev" : {
+      "user" : "",
+      "host" : "",
+      "key"  : "",
+      "ref"  : "",
+      "repo" : "",
+      "path" : "",
+      "post-deploy" : "source ~/.nvm/nvm.sh && nvm use 4.2.6 && npm install && npm install browserify-shim lodash && gulp start && pm2 startOrRestart ecosystem.json --env dev"
+    }
+  }
+}
