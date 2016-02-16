@@ -1,22 +1,22 @@
 {
   "apps" : [
     {
-      "name": "appname_dev",
+      "name": "IWYTS_dev",
       "script": "dist/server.js",
       "env": {
         "COMMON_VARIABLE": "true",
-        "NODE_PATH": ""
+        "NODE_PATH": "/var/www/development/source/dist"
       }
     }
   ],
   "deploy" : {
     "dev" : {
-      "user" : "",
+      "user" : "ubuntu",
       "host" : "",
-      "key"  : "",
-      "ref"  : "",
-      "repo" : "",
-      "path" : "",
+      "key"  : "/Users/ywryoo/.ssh/IWYTS.pem",
+      "ref"  : "origin/master",
+      "repo" : "git@github.com:ywryoo/React_Starter.git",
+      "path" : "/var/www/development",
       "post-deploy" : "source ~/.nvm/nvm.sh && nvm use 4.2.6 && npm install && npm install browserify-shim lodash && gulp start && pm2 startOrRestart ecosystem.json --env dev"
     }
   }

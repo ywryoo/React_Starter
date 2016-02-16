@@ -1,2 +1,2 @@
 # React_Starter
-React starter kit for es6
+React starter kit

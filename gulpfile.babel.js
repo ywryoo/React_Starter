@@ -2,123 +2,97 @@
  * Created by Yangwook Ryoo on 1/28/16.
  *
  * This source code is licensed under the MIT license found in the
- * LICENSE.txt file in the root directory of this source tree.
+ * LICENSE file in the root directory of this source tree.
  */
 'use strict';
 
 import gulp from 'gulp';
-import browserify from 'browserify';
-import babelify from 'babelify';
-import watchify from 'watchify';
-import uglify from 'gulp-uglify';
-import sourcemaps from 'gulp-sourcemaps';
-import rename from 'gulp-rename';
-import assign from 'lodash.assign';
-import babel from 'gulp-babel';
-import source from 'vinyl-source-stream';
-import del from 'del';
 import nodemon from 'gulp-nodemon';
 import eslint from 'gulp-eslint';
-import gutil from 'gulp-util';
-import buffer from 'vinyl-buffer';
 import mocha from 'gulp-mocha';
 import istanbul from 'gulp-istanbul';
+import webpack from 'webpack';
+import del from 'del';
 import path from 'path';
+
 import * as config from './tools/config.js';
+
 const isparta = require('isparta');
 
 /* clean dist/public directory before start */
 gulp.task('clean', () => {
-  return del(['dist/public/*', 'dist/server.js.map', '!dist/public/*.js']);
+  return del(['dist/public/*', '!dist/public/*.js', '**/*.map']);
 });
 
 /* copy static files and server.js */
 gulp.task('copy', ['clean'], () => {
-  return gulp.src('src/public/*')
+  return gulp.src([
+    'src/public/*',
+    'node_modules/jquery/dist/jquery.min.js',
+    'node_modules/foundation-sites/dist/foundation.min.js',
+    'node_modules/foundation-sites/js/foundation.util.mediaQuery.js'
+    ])//remove if not necessory
     .pipe(gulp.dest('dist/public/'));
 });
 
+
+//showing error or done
+function onBuild(done) {
+  return (err, stats) => {
+    if(err) {
+      console.log('Error', err);
+    }
+    else {
+      console.log(stats.toString({chunks:false}));
+    }
+    if(done) {
+      done();
+    }
+  }
+}
+
+/* build app with sourcemap */
+gulp.task('buildApp', done => {
+  webpack(Object.assign(
+    {devtool: "source-map"},
+    config.webpackAppConfig))
+  .run(onBuild(done)
+  );
+});
 //TODO minify CSS and img
 
-/* lint js/jsx files */
-gulp.task('lint', () => {
-  return gulp.src(['src/**/*.jsx'],['src/**/*.js'])
-    .pipe(eslint(config.lintConfig))
-    .pipe(eslint.format())
-    .pipe(eslint.failAfterError());
-  //TODO need to customize rules and scope
+/* build app without sourcemap */
+gulp.task('buildApp:production', done => {
+  webpack(config.webpackAppConfig)
+  .run(onBuild(done));
+});
+//TODO minify CSS and img
+
+/* build server with sourcemap */
+gulp.task('buildServer', done => {
+  webpack(config.webpackServerConfig)
+  .run(onBuild(done));
 });
 
-//bundle functions
-function bundleApp(bundler) {
-  return bundler.transform('babelify', {presets: ['es2015', 'react']}) //es6
-    .bundle()   //bundle
-    .on('error', gutil.log.bind(gutil, 'Browserify Error')) //error logging
-    .pipe(source('app.js'))  //name
-    .pipe(buffer())             //buffer
-    .pipe(gulp.dest('dist/public'))   //destination
-    .pipe(rename('app.min.js'))
-    .pipe(sourcemaps.init({ loadMaps: true }))
-    // capture sourcemaps from transforms
-    .pipe(uglify())
-    .pipe(sourcemaps.write('.'))
-    .pipe(gulp.dest('dist/public'));
-}
-
-function bundleServer(bundler) {
-  return bundler.transform('babelify', {presets: ['es2015']}) //es6
-    .bundle()   //bundle
-    .on('error', gutil.log.bind(gutil, 'Browserify Error')) //error logging
-    .pipe(source('server.js'))  //name
-    .pipe(buffer())             //buffer
-    .pipe(gulp.dest('dist'))   //destination
-    .pipe(sourcemaps.init({ loadMaps: true }))
-    // capture sourcemaps from transforms
-    .pipe(sourcemaps.write('.'))
-    .pipe(gulp.dest('dist'));
-}
-
-
-/* bundle client js files */
-gulp.task('bundleApp', ['lint'], () => {
-  return bundleApp(browserify(config.browserifyAppConfig)); //configure watchify and browserify
-  //TODO if env is staging, debug on
+gulp.task('watchApp', () => {
+  webpack(Object.assign(
+    {devtool: "source-map"},
+    config.webpackAppConfig))
+  .watch(100, onBuild());
 });
 
-/* bundle server.js files */
-gulp.task('bundleServer', ['lint'], () => {
-  return bundleServer(browserify(config.browserifyServerConfig));    //configure watchify and browserify
+gulp.task('watchServer', () => {
+  webpack(config.webpackServerConfig)
+  .watch(100, onBuild());
 });
-
-//configure watchify and browserify
-let bApp = watchify(browserify(assign({ debug:true }, watchify.args, config.browserifyAppConfig)));
-let bServer = watchify(browserify(assign({ debug:true }, watchify.args, config.browserifyServerConfig)));
-
-/* bundle and watch client js files */
-gulp.task('watchifyApp', ['lint'], () => {
-  return bundleApp(bApp);
-});
-gulp.task('watchifyServer', ['lint'], () => {
-  return bundleServer(bServer);
-});
-
-bApp.on('log', gutil.log); // output build logs to terminal
-bApp.on('update', () => {
-  bundleApp(bApp);
-}); // on any dep update, runs the bundler
-bServer.on('log', gutil.log); // output build logs to terminal
-bServer.on('update', () => {
-  bundleServer(bServer);
-}); // on any dep update, runs the bundler
 
 /* watch change of source except client js/jsx files */
-gulp.task('watch', ['watchifyServer', 'watchifyApp'], () => {
+gulp.task('watch', ['watchServer', 'watchApp'], () => {
   gulp.watch(['src/public/*'], ['copy']);       //public file change -> rerun copy
 });
 
-
 /* remove all unit test report files */
-gulp.task('clean-coverage', function(cb) {
+gulp.task('clean-coverage', cb => {
   return del('dist/coverage', cb);
 });
 
@@ -150,17 +124,31 @@ gulp.task('test', ['istanbul'], () => {
   //TODO make unit test for every case.
 });
 
+/* lint js/jsx files */
+gulp.task('lint', () => {
+  return gulp.src(['src/**/*.jsx'],['src/**/*.js'])
+    .pipe(eslint(config.lintConfig))
+    .pipe(eslint.format())
+    .pipe(eslint.failAfterError());
+  //TODO need to customize rules and scope
+});
+
+/* bundle/build for production */
+gulp.task('startProduction', ['buildApp:production', 'buildServer', 'copy'], () => {
+  return console.log("build for production done");
+});
+
 /* bundle/build for deploy */
-gulp.task('start',['bundleApp', 'bundleServer', 'copy', 'test'], () => {
-  return console.log("bundle/transpile done");
+gulp.task('start',['buildApp', 'buildServer', 'copy'], () => {
+  return console.log("build done");
 });
 
 /* run application in localhost by default */
-gulp.task('default',['watch', 'copy', 'test'], () => {
+gulp.task('default',['watch', 'copy'], () => {
   nodemon({
     script: 'dist/server.js',
-    ext: 'js html css',
-    watch: ['dist/**/*.*'],
+    ext: 'js html',
+    watch: 'dist/*',
     env: {
       'NODE_ENV': 'development',
       'NODE_PATH': path.join(__dirname+'/dist')

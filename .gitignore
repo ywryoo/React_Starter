@@ -39,4 +39,5 @@ node_modules
 
 dist
 .DS_Store
-src/db.js
+src/constants/db.js
+*.bak

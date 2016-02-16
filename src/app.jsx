@@ -2,18 +2,40 @@
  * Created by Yangwook Ryoo on 1/29/16.
  *
  * This source code is licensed under the MIT license found in the
- * LICENSE.txt file in the root directory of this source tree.
+ * LICENSE file in the root directory of this source tree.
  */
 import React from 'react';
-import ReactDOM from 'react-dom';
+import {render} from 'react-dom';
+import { Router, Route, IndexRoute, hashHistory } from 'react-router';
+import MainApp from './components/MainApp.react';
+import CommentBox from './components/CommentBox';
+import TodoApp from './components/TodoApp.react';
+import './components/Foundation.scss';
 
-class App extends React.Component {
+//pass props
+class CommentBoxWrapper extends React.Component {
   render() {
-    return <h1>Hi, {this.props.name}!</h1>;
+    return (
+      <CommentBox url='api/comments' pollInterval={2000} />
+    );
   }
 }
 
-ReactDOM.render(
-<App name="stranger"/>,
-  document.querySelector('.react-root')
-);
+function renderReact() {
+  render((
+    <Router history={hashHistory}>
+      <Route path="/" component={MainApp}>
+        <IndexRoute component={CommentBoxWrapper} />
+        <Route path="todo" component={TodoApp} />
+      </Route>
+    </Router>
+  ), document.getElementById('app'));
+}
+
+// Run the application when both DOM is ready
+// and page content is loaded
+if (window.addEventListener) {
+  window.addEventListener('DOMContentLoaded', renderReact);
+} else {
+  window.attachEvent('onload', renderReact);
+}
